@@ -1,0 +1,191 @@
+local mod = get_mod("MinionKillfeed")
+
+local _companion_owner_cache = setmetatable({}, { __mode = "k" })
+local _not_companion_cache = setmetatable({}, { __mode = "k" })
+
+local function get_all_companion_units(spawner_ext)
+	local units = {}
+	if spawner_ext._spawned_units then
+		for _, u in ipairs(spawner_ext._spawned_units) do
+			table.insert(units, u)
+		end
+	end
+	
+	local SpecialRules = require("scripts/settings/ability/special_rules_settings").special_rules
+	if SpecialRules and spawner_ext.spawned_unit_lookup then
+		local rules = {
+			"cryptic_servo_skull", "cryptic_servo_skull_lasgun",
+			"cryptic_servo_skull_flamethrower", "cryptic_servo_skull_hack",
+			"cryptic_servo_skull_inject_ally"
+		}
+		for _, rule_name in ipairs(rules) do
+			local success, rule = pcall(function() return SpecialRules[rule_name] end)
+			if success and rule then
+				local u = spawner_ext:spawned_unit_lookup(rule)
+				if u then table.insert(units, u) end
+			end
+		end
+	end
+	return units
+end
+
+local function unit_is_companion(unit)
+	if not Managers.player or not unit then return false end
+	if _companion_owner_cache[unit] then return true end
+	if _not_companion_cache[unit] then return false end
+
+	local players = Managers.player:players()
+	for _, player in pairs(players) do
+		local player_unit = player.player_unit
+		if player_unit and ALIVE[player_unit] then
+			local spawner_ext = ScriptUnit.has_extension(player_unit, "companion_spawner_system")
+			if spawner_ext then
+				local companions = get_all_companion_units(spawner_ext)
+				for _, spawned_unit in ipairs(companions) do
+					if spawned_unit == unit then
+						_companion_owner_cache[unit] = player
+						return true
+					end
+				end
+			end
+		end
+	end
+
+	_not_companion_cache[unit] = true
+	return false
+end
+
+local function is_teammate_kill(attacking_unit)
+	local local_player = Managers.player and Managers.player:local_player(1)
+	if not local_player then return false end
+
+	local owner_player = Managers.player:player_by_unit(attacking_unit)
+	if not owner_player then
+		if unit_is_companion(attacking_unit) then
+			owner_player = _companion_owner_cache[attacking_unit]
+		end
+	end
+
+	if owner_player and owner_player ~= local_player then
+		return true
+	end
+	return false
+end
+
+local _triggered_deaths = setmetatable({}, { __mode = "k" })
+
+mod:hook("AttackReportManager", "_process_attack_result", function(func, self, buffer_data)
+	func(self, buffer_data)
+
+	if not mod:get("enable_all_kills") then
+		return
+	end
+
+	local attack_result = buffer_data.attack_result
+	local attacked_unit = buffer_data.attacked_unit
+	local attacking_unit = buffer_data.attacking_unit
+
+	if attack_result == "died" and attacked_unit and attacking_unit then
+		local companion_mod = get_mod("CompanionKillfeed")
+		if companion_mod and companion_mod:is_enabled() then
+			if companion_mod:get("show_non_elite_kills") and unit_is_companion(attacking_unit) then
+				return
+			end
+		end
+
+		if not mod:get("show_teammate_kills") and is_teammate_kill(attacking_unit) then
+			return
+		end
+		local unit_data_extension = ScriptUnit.has_extension(attacked_unit, "unit_data_system")
+		local breed_or_nil = unit_data_extension and unit_data_extension:breed()
+		
+		local tags = breed_or_nil and breed_or_nil.tags
+		local allowed_breed = tags and (tags.monster or tags.special or tags.elite)
+		
+		if not allowed_breed then
+			local now = Managers.time and Managers.time:time("gameplay") or 0
+			if _triggered_deaths[attacked_unit] and (now - _triggered_deaths[attacked_unit] < 0.1) then
+				return
+			end
+			if now > 0 then
+				_triggered_deaths[attacked_unit] = now
+			end
+
+			Managers.event:trigger("event_combat_feed_kill", attacking_unit, attacked_unit)
+		end
+	end
+end)
+
+local _feed_processed_kills = setmetatable({}, { __mode = "k" })
+
+local temp_kill_message_params = { killer = "n/a", victim = "n/a" }
+
+local function merge_non_elite_kill(self, attacking_unit, attacked_unit)
+	if not self._notifications or not self._remove_notification or not self._set_text then
+		return
+	end
+
+	local unit_data_ext = ScriptUnit.has_extension(attacked_unit, "unit_data_system")
+	local breed_or_nil = unit_data_ext and unit_data_ext:breed()
+	if not breed_or_nil then return end
+
+	local tags = breed_or_nil.tags
+	if tags and (tags.monster or tags.special or tags.elite or tags.captain or tags.boss) then
+		return
+	end
+
+	local notifications = self._notifications
+	local new_notification = notifications[1]
+	if not new_notification then return end
+
+	new_notification.count = 1
+	new_notification.breed = breed_or_nil
+	new_notification.player = attacking_unit
+
+	for _, notification in ipairs(notifications) do
+		if notification.breed == breed_or_nil
+			and notification.player == attacking_unit
+			and notification.id ~= new_notification.id then
+			new_notification.count = (notification.count or 1) + 1
+			self:_remove_notification(notification.id)
+		end
+	end
+
+	if new_notification.count > 1 then
+		local killer = self:_get_unit_presentation_name(attacking_unit, true, nil, 1)
+		local victim = self:_get_unit_presentation_name(attacked_unit, false, breed_or_nil, 1)
+		temp_kill_message_params.killer = killer
+		temp_kill_message_params.victim = victim
+		local text = self:_localize("loc_hud_combat_feed_kill_message", true, temp_kill_message_params)
+		text = text .. " x" .. tostring(new_notification.count)
+		self:_set_text(new_notification.id, text)
+	end
+end
+
+mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, attacking_unit, attacked_unit, ...)
+	if attacked_unit then
+		local now = Managers.time and Managers.time:time("gameplay") or 0
+		if _feed_processed_kills[attacked_unit] and (now - _feed_processed_kills[attacked_unit] < 0.1) then
+			return
+		end
+		if now > 0 then
+			_feed_processed_kills[attacked_unit] = now
+		end
+	end
+
+	func(self, attacking_unit, attacked_unit, ...)
+	
+	if mod:get("enable_all_kills") and mod:get("stack_kills") then
+		local companion_mod = get_mod("CompanionKillfeed")
+		local skip_merge = false
+		if companion_mod and companion_mod:is_enabled() and companion_mod:get("show_non_elite_kills") and companion_mod:get("stack_non_elite_kills") then
+			if unit_is_companion(attacking_unit) then
+				skip_merge = true
+			end
+		end
+		
+		if not skip_merge then
+			merge_non_elite_kill(self, attacking_unit, attacked_unit)
+		end
+	end
+end)
