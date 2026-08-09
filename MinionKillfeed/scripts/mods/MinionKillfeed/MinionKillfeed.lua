@@ -99,6 +99,10 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 		local is_companion = unit_is_companion(attacking_unit)
 		local is_enemy_killer = not is_player and not is_companion
 		
+		if is_player and not is_teammate_kill(attacking_unit) and not mod:get("show_own_kills") then
+			return func(self, buffer_data)
+		end
+		
 		if is_enemy_killer and not mod:get("show_enemy_kills") then
 			return func(self, buffer_data)
 		end

@@ -20,6 +20,9 @@ return {
 	show_teammate_kills = {
 		en = "Show Teammate Kills",
 	},
+	show_own_kills = {
+		en = "Show Own Kills",
+	},
 	show_enemy_kills = {
 		en = "Show Enemy-on-Enemy Kills",
 	},

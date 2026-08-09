@@ -27,6 +27,11 @@ return {
 						default_value = true,
 					},
 					{
+						setting_id = "show_own_kills",
+						type = "checkbox",
+						default_value = true,
+					},
+					{
 						setting_id = "show_enemy_kills",
 						type = "checkbox",
 						default_value = true,
