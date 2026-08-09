@@ -75,10 +75,8 @@ end
 local _triggered_deaths = setmetatable({}, { __mode = "k" })
 
 mod:hook("AttackReportManager", "_process_attack_result", function(func, self, buffer_data)
-	func(self, buffer_data)
-
 	if not mod:get("enable_all_kills") then
-		return
+		return func(self, buffer_data)
 	end
 
 	local attack_result = buffer_data.attack_result
@@ -89,23 +87,41 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 		local companion_mod = get_mod("CompanionKillfeed")
 		if companion_mod and companion_mod:is_enabled() then
 			if companion_mod:get("show_non_elite_kills") and unit_is_companion(attacking_unit) then
-				return
+				return func(self, buffer_data)
 			end
 		end
 
 		if not mod:get("show_teammate_kills") and is_teammate_kill(attacking_unit) then
-			return
+			return func(self, buffer_data)
 		end
+
+		local is_player = Managers.player and Managers.player:player_by_unit(attacking_unit) ~= nil
+		local is_companion = unit_is_companion(attacking_unit)
+		local is_enemy_killer = not is_player and not is_companion
+		
+		if is_enemy_killer and not mod:get("show_enemy_kills") then
+			return func(self, buffer_data)
+		end
+
 		local unit_data_extension = ScriptUnit.has_extension(attacked_unit, "unit_data_system")
 		local breed_or_nil = unit_data_extension and unit_data_extension:breed()
 		
 		local tags = breed_or_nil and breed_or_nil.tags
 		local allowed_breed = tags and (tags.monster or tags.special or tags.elite)
 		
+		local should_trigger = false
 		if not allowed_breed then
+			should_trigger = true
+		else
+			if is_enemy_killer then
+				should_trigger = true
+			end
+		end
+		
+		if should_trigger then
 			local now = Managers.time and Managers.time:time("gameplay") or 0
 			if _triggered_deaths[attacked_unit] and (now - _triggered_deaths[attacked_unit] < 0.1) then
-				return
+				return func(self, buffer_data)
 			end
 			if now > 0 then
 				_triggered_deaths[attacked_unit] = now
@@ -114,6 +130,8 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 			Managers.event:trigger("event_combat_feed_kill", attacking_unit, attacked_unit)
 		end
 	end
+	
+	func(self, buffer_data)
 end)
 
 local _feed_processed_kills = setmetatable({}, { __mode = "k" })
@@ -152,8 +170,13 @@ local function merge_non_elite_kill(self, attacking_unit, attacked_unit)
 	end
 
 	if new_notification.count > 1 then
-		local killer = self:_get_unit_presentation_name(attacking_unit, true, nil, 1)
-		local victim = self:_get_unit_presentation_name(attacked_unit, false, breed_or_nil, 1)
+		local killer = self:_get_unit_presentation_name(attacking_unit) or "Unknown"
+		local victim = self:_get_unit_presentation_name(attacked_unit)
+		if not victim and breed_or_nil and breed_or_nil.display_name then
+			victim = Localize(breed_or_nil.display_name)
+		end
+		victim = victim or "Heretic"
+		
 		temp_kill_message_params.killer = killer
 		temp_kill_message_params.victim = victim
 		local text = self:_localize("loc_hud_combat_feed_kill_message", true, temp_kill_message_params)
@@ -188,4 +211,12 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 			merge_non_elite_kill(self, attacking_unit, attacked_unit)
 		end
 	end
+end)
+
+mod:hook("HudElementCombatFeed", "_get_unit_presentation_name", function(func, self, unit, ...)
+	local result = func(self, unit, ...)
+	if result == nil then
+		return "Heretic"
+	end
+	return result
 end)
