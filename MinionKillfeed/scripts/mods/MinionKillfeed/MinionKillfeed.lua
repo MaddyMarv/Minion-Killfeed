@@ -149,9 +149,9 @@ local function merge_non_elite_kill(self, attacking_unit, attacked_unit)
 
 	local unit_data_ext = ScriptUnit.has_extension(attacked_unit, "unit_data_system")
 	local breed_or_nil = unit_data_ext and unit_data_ext:breed()
-	if not breed_or_nil then return end
 
-	local tags = breed_or_nil.tags
+
+	local tags = breed_or_nil and breed_or_nil.tags
 	if tags and (tags.monster or tags.special or tags.elite or tags.captain or tags.boss) then
 		return
 	end
