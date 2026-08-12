@@ -177,12 +177,19 @@ local function merge_non_elite_kill(self, attacking_unit, attacked_unit)
 	end
 
 	if new_notification.count > 1 then
-		local killer = self:_get_unit_presentation_name(attacking_unit) or "Unknown"
+		local killer = self:_get_unit_presentation_name(attacking_unit)
+		if not killer then
+			local ext = ScriptUnit.has_extension(attacking_unit, "unit_data_system")
+			local breed = ext and ext:breed()
+			if breed and breed.display_name then killer = Localize(breed.display_name) end
+		end
+		
 		local victim = self:_get_unit_presentation_name(attacked_unit)
 		if not victim and breed_or_nil and breed_or_nil.display_name then
 			victim = Localize(breed_or_nil.display_name)
 		end
-		victim = victim or "Heretic"
+		
+		if not killer or not victim then return end
 		
 		temp_kill_message_params.killer = killer
 		temp_kill_message_params.victim = victim
@@ -204,7 +211,22 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 	end
 
 	local killer_name = self:_get_unit_presentation_name(attacking_unit)
+	if not killer_name then
+		local ext = ScriptUnit.has_extension(attacking_unit, "unit_data_system")
+		local breed = ext and ext:breed()
+		if breed and breed.display_name then killer_name = Localize(breed.display_name) end
+	end
+	
 	local victim_name = self:_get_unit_presentation_name(attacked_unit)
+	if not victim_name then
+		local ext = ScriptUnit.has_extension(attacked_unit, "unit_data_system")
+		local breed = ext and ext:breed()
+		if breed and breed.display_name then victim_name = Localize(breed.display_name) end
+	end
+
+	if not killer_name or not victim_name then
+		return
+	end
 
 	local is_player_killer = Managers.player and Managers.player:player_by_unit(attacking_unit) ~= nil
 	local is_companion_killer = attacking_unit and unit_is_companion(attacking_unit)
@@ -214,19 +236,7 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 	local is_companion_victim = attacked_unit and unit_is_companion(attacked_unit)
 	local is_teammate_victim = is_player_victim or is_companion_victim
 
-	if is_teammate_killer and victim_name == "Heretic" then
-		return
-	end
-	
-	if is_teammate_victim and killer_name == "Heretic" then
-		return
-	end
-
-	if is_teammate_killer and killer_name == "Heretic" then
-		return
-	end
-
-	if is_teammate_victim and victim_name == "Heretic" then
+	if is_teammate_killer and is_teammate_victim then
 		return
 	end
 
@@ -245,12 +255,4 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 			merge_non_elite_kill(self, attacking_unit, attacked_unit)
 		end
 	end
-end)
-
-mod:hook("HudElementCombatFeed", "_get_unit_presentation_name", function(func, self, unit, ...)
-	local result = func(self, unit, ...)
-	if result == nil then
-		return "Heretic"
-	end
-	return result
 end)
