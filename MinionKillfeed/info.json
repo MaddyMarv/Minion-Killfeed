@@ -8,8 +8,10 @@
         "kofi": "https://ko-fi.com/indicabunny"
     },
     "description": "Enables the killfeed to show all enemies like trash mobs and shows enemy-on-enemy kills!",
-    "required": [],
-    "self_before": [],
-    "self_after": [],
+    "dependencies": {
+        "required": [],
+        "self_after": [],
+        "self_before": []
+    },
     "localization": {}
 }
