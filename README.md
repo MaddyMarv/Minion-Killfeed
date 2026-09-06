@@ -6,10 +6,10 @@ Standalone mod that broadcasts minion kills (such as Groaners and Poxwalkers) di
 **Options:**
 
 **General**
-- Show Minion Kills in Feed
-- Minion Kill Feed Routing [Main Feed Only, Separate Feed Only, Both Feeds]
-- Combine / Stack Kills
-- Show Attack Type
-- Show Damage Amount
+- Enable Minion Kills
+- Stack Minion Kills
+- Show Teammate Kills
+- Show Own Kills
+- Show Enemy-on-Enemy Kills
 
 🔗 **Links:** [Source Code](https://github.com/MaddyMarv/minion-killfeed) | [Nexus Mods Profile](https://www.nexusmods.com/profile/indicabunny) | [Support Me on Ko-fi](https://ko-fi.com/indicabunny)
