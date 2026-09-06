@@ -9,4 +9,5 @@ Standalone mod that broadcasts minion kills (such as Groaners and Poxwalkers) di
 - Show Own Kills
 - Show Enemy-on-Enemy Kills
 
-[b]Links:[/b] [url=https://github.com/MaddyMarv/minion-killfeed]Source Code[/url] | [url=https://www.nexusmods.com/profile/indicabunny]Nexus Mods Profile[/url] | [url=https://ko-fi.com/indicabunny]Support Me on Ko-fi[/url]
+[b]Links:[/b]
+[url=https://github.com/MaddyMarv/minion-killfeed]Source Code[/url] | [url=https://www.nexusmods.com/profile/indicabunny]Nexus Mods Profile[/url] | [url=https://ko-fi.com/indicabunny]Support Me on Ko-fi[/url]
