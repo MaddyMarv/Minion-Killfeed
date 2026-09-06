@@ -7,7 +7,7 @@
     "funding": {
         "kofi": "https://ko-fi.com/indicabunny"
     },
-    "description": "Enables the killfeed to show all enemies like trash mobs and shows enemy-on-enemy kills!",
+    "description": "Adds horde and trash mob kills (Poxwalkers, Groaners) to the killfeed, stacked to prevent feed spam.",
     "dependencies": {
         "required": [],
         "self_after": [],

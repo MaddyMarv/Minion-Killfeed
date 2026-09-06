@@ -3,7 +3,7 @@ return {
 		en = "Minion Killfeed",
 	},
 	mod_description = {
-		en = "Shows all enemy deaths in the killfeed.",
+		en = "Adds horde and trash mob kills (Poxwalkers, Groaners) to the killfeed, stacked to prevent feed spam.",
 	},
 	general_settings = {
 		en = "General Settings",
