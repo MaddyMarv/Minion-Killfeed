@@ -1,4 +1,4 @@
-Standalone mod that displays minion kills (such as Groaners and Poxwalkers) directly in the combat kill feed. It intercepts trash mob deaths and stacks identical kills (e.g., Poxwalker x5). You can configure it to filter out minion kills made by your teammates and toggle the stacking feature on or off.
+Adds horde and trash mob kills (Poxwalkers, Groaners) to the killfeed, stacked (e.g., Poxwalker x5) to prevent feed spam.
 
 [b]Options:[/b]
 
