@@ -1,13 +1,14 @@
 Adds horde and trash mob kills (Poxwalkers, Groaners) to the killfeed, stacked (e.g., Poxwalker x5) to prevent feed spam.
 
-[b]Options:[/b]
-
+[b]Mod Settings / Commands:[/b]
+[spoiler]
 [b]General[/b]
 - Enable Minion Kills
 - Stack Minion Kills
 - Show Teammate Kills
 - Show Own Kills
 - Show Enemy-on-Enemy Kills
+[/spoiler]
 
 [b]Links:[/b]
 [url=https://github.com/MaddyMarv/minion-killfeed]Source Code[/url] | [url=https://www.nexusmods.com/profile/indicabunny]Nexus Mods Profile[/url] | [url=https://ko-fi.com/indicabunny]Support Me on Ko-fi[/url]
