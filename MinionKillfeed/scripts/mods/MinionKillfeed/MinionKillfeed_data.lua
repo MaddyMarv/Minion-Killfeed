@@ -1,5 +1,3 @@
-local mod = get_mod("MinionKillfeed")
-
 return {
 	name = "Minion Killfeed",
 	description = "Shows all enemy deaths in the killfeed.",
@@ -36,8 +34,8 @@ return {
 						type = "checkbox",
 						default_value = true,
 					},
-				}
-			}
-		}
-	}
+				},
+			},
+		},
+	},
 }

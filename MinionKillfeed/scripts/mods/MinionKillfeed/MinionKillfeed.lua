@@ -3,50 +3,78 @@ local mod = get_mod("MinionKillfeed")
 local _companion_owner_cache = setmetatable({}, { __mode = "k" })
 local _not_companion_cache = setmetatable({}, { __mode = "k" })
 
-local function get_all_companion_units(spawner_ext)
-	local units = {}
-	if spawner_ext._spawned_units then
-		for _, u in ipairs(spawner_ext._spawned_units) do
-			table.insert(units, u)
-		end
+local enable_all_kills = true
+local stack_kills = true
+local show_teammate_kills = true
+local show_own_kills = true
+local show_enemy_kills = true
+
+local function cache_settings()
+	enable_all_kills = mod:get("enable_all_kills")
+	stack_kills = mod:get("stack_kills")
+	show_teammate_kills = mod:get("show_teammate_kills")
+	show_own_kills = mod:get("show_own_kills")
+	show_enemy_kills = mod:get("show_enemy_kills")
+end
+
+cache_settings()
+mod.on_setting_changed = cache_settings
+mod.on_enabled = cache_settings
+
+local SpecialRules = require("scripts/settings/ability/special_rules_settings").special_rules
+
+local SKULL_RULES = {}
+for _, rule_name in ipairs({
+	"cryptic_servo_skull",
+	"cryptic_servo_skull_lasgun",
+	"cryptic_servo_skull_flamethrower",
+	"cryptic_servo_skull_hack",
+	"cryptic_servo_skull_inject_ally",
+}) do
+	local rule = rawget(SpecialRules, rule_name)
+	if rule then
+		SKULL_RULES[#SKULL_RULES + 1] = rule
 	end
-	
-	local SpecialRules = require("scripts/settings/ability/special_rules_settings").special_rules
-	if SpecialRules and spawner_ext.spawned_unit_lookup then
-		local rules = {
-			"cryptic_servo_skull", "cryptic_servo_skull_lasgun",
-			"cryptic_servo_skull_flamethrower", "cryptic_servo_skull_hack",
-			"cryptic_servo_skull_inject_ally"
-		}
-		for _, rule_name in ipairs(rules) do
-			local success, rule = pcall(function() return SpecialRules[rule_name] end)
-			if success and rule then
-				local u = spawner_ext:spawned_unit_lookup(rule)
-				if u then table.insert(units, u) end
+end
+
+local function spawner_has_unit(spawner_ext, unit)
+	local spawned = spawner_ext._spawned_units
+	if spawned then
+		for i = 1, #spawned do
+			if spawned[i] == unit then
+				return true
 			end
 		end
 	end
-	return units
+	if spawner_ext.spawned_unit_lookup then
+		for i = 1, #SKULL_RULES do
+			if spawner_ext:spawned_unit_lookup(SKULL_RULES[i]) == unit then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 local function unit_is_companion(unit)
-	if not Managers.player or not unit then return false end
-	if _companion_owner_cache[unit] then return true end
-	if _not_companion_cache[unit] then return false end
+	if not Managers.player or not unit then
+		return false
+	end
+	if _companion_owner_cache[unit] then
+		return true
+	end
+	if _not_companion_cache[unit] then
+		return false
+	end
 
 	local players = Managers.player:players()
 	for _, player in pairs(players) do
 		local player_unit = player.player_unit
 		if player_unit and ALIVE[player_unit] then
 			local spawner_ext = ScriptUnit.has_extension(player_unit, "companion_spawner_system")
-			if spawner_ext then
-				local companions = get_all_companion_units(spawner_ext)
-				for _, spawned_unit in ipairs(companions) do
-					if spawned_unit == unit then
-						_companion_owner_cache[unit] = player
-						return true
-					end
-				end
+			if spawner_ext and spawner_has_unit(spawner_ext, unit) then
+				_companion_owner_cache[unit] = player
+				return true
 			end
 		end
 	end
@@ -57,7 +85,9 @@ end
 
 local function is_teammate_kill(attacking_unit)
 	local local_player = Managers.player and Managers.player:local_player(1)
-	if not local_player then return false end
+	if not local_player then
+		return false
+	end
 
 	local owner_player = Managers.player:player_by_unit(attacking_unit)
 	if not owner_player then
@@ -75,7 +105,7 @@ end
 local _triggered_deaths = setmetatable({}, { __mode = "k" })
 
 mod:hook("AttackReportManager", "_process_attack_result", function(func, self, buffer_data)
-	if not mod:get("enable_all_kills") then
+	if not enable_all_kills then
 		return func(self, buffer_data)
 	end
 
@@ -86,33 +116,38 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 	if attack_result == "died" and attacked_unit and attacking_unit then
 		local companion_mod = get_mod("CompanionKillfeed")
 		if companion_mod and companion_mod:is_enabled() then
-			if companion_mod:get("show_non_elite_kills") and unit_is_companion(attacking_unit) then
+			local credited_unit = companion_mod.credit_companion and companion_mod.credit_companion(buffer_data)
+			if companion_mod:get("show_non_elite_kills") and (credited_unit or unit_is_companion(attacking_unit)) then
 				return func(self, buffer_data)
+			end
+			if credited_unit then
+				attacking_unit = credited_unit
 			end
 		end
 
-		if not mod:get("show_teammate_kills") and is_teammate_kill(attacking_unit) then
+		local is_teammate = is_teammate_kill(attacking_unit)
+		if not show_teammate_kills and is_teammate then
 			return func(self, buffer_data)
 		end
 
 		local is_player = Managers.player and Managers.player:player_by_unit(attacking_unit) ~= nil
 		local is_companion = unit_is_companion(attacking_unit)
 		local is_enemy_killer = not is_player and not is_companion
-		
-		if is_player and not is_teammate_kill(attacking_unit) and not mod:get("show_own_kills") then
+
+		if is_player and not is_teammate and not show_own_kills then
 			return func(self, buffer_data)
 		end
-		
-		if is_enemy_killer and not mod:get("show_enemy_kills") then
+
+		if is_enemy_killer and not show_enemy_kills then
 			return func(self, buffer_data)
 		end
 
 		local unit_data_extension = ScriptUnit.has_extension(attacked_unit, "unit_data_system")
 		local breed_or_nil = unit_data_extension and unit_data_extension:breed()
-		
+
 		local tags = breed_or_nil and breed_or_nil.tags
 		local allowed_breed = tags and (tags.monster or tags.special or tags.elite)
-		
+
 		local should_trigger = false
 		if not allowed_breed then
 			should_trigger = true
@@ -121,7 +156,7 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 				should_trigger = true
 			end
 		end
-		
+
 		if should_trigger then
 			local now = Managers.time and Managers.time:time("gameplay") or 0
 			if _triggered_deaths[attacked_unit] and (now - _triggered_deaths[attacked_unit] < 0.1) then
@@ -134,7 +169,7 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 			Managers.event:trigger("event_combat_feed_kill", attacking_unit, attacked_unit)
 		end
 	end
-	
+
 	func(self, buffer_data)
 end)
 
@@ -146,13 +181,14 @@ local function merge_non_elite_kill(self, attacking_unit, attacked_unit)
 	if not self._notifications or not self._remove_notification or not self._set_text then
 		return
 	end
-	
+
 	local is_player = Managers.player and Managers.player:player_by_unit(attacked_unit) ~= nil
-	if is_player then return end
+	if is_player then
+		return
+	end
 
 	local unit_data_ext = ScriptUnit.has_extension(attacked_unit, "unit_data_system")
 	local breed_or_nil = unit_data_ext and unit_data_ext:breed()
-
 
 	local tags = breed_or_nil and breed_or_nil.tags
 	if tags and (tags.monster or tags.special or tags.elite or tags.captain or tags.boss) then
@@ -161,16 +197,21 @@ local function merge_non_elite_kill(self, attacking_unit, attacked_unit)
 
 	local notifications = self._notifications
 	local new_notification = notifications[1]
-	if not new_notification then return end
+	if not new_notification then
+		return
+	end
 
-	new_notification.count = 1
+	new_notification.count = new_notification.count or 1
 	new_notification.breed = breed_or_nil
 	new_notification.player = attacking_unit
 
-	for _, notification in ipairs(notifications) do
-		if notification.breed == breed_or_nil
+	for i = #notifications, 1, -1 do
+		local notification = notifications[i]
+		if
+			notification.breed == breed_or_nil
 			and notification.player == attacking_unit
-			and notification.id ~= new_notification.id then
+			and notification.id ~= new_notification.id
+		then
 			new_notification.count = (notification.count or 1) + 1
 			self:_remove_notification(notification.id)
 		end
@@ -181,16 +222,20 @@ local function merge_non_elite_kill(self, attacking_unit, attacked_unit)
 		if not killer then
 			local ext = ScriptUnit.has_extension(attacking_unit, "unit_data_system")
 			local breed = ext and ext:breed()
-			if breed and breed.display_name then killer = Localize(breed.display_name) end
+			if breed and breed.display_name then
+				killer = Localize(breed.display_name)
+			end
 		end
-		
+
 		local victim = self:_get_unit_presentation_name(attacked_unit)
 		if not victim and breed_or_nil and breed_or_nil.display_name then
 			victim = Localize(breed_or_nil.display_name)
 		end
-		
-		if not killer or not victim then return end
-		
+
+		if not killer or not victim then
+			return
+		end
+
 		temp_kill_message_params.killer = killer
 		temp_kill_message_params.victim = victim
 		local text = self:_localize("loc_hud_combat_feed_kill_message", true, temp_kill_message_params)
@@ -202,11 +247,16 @@ end
 mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, attacking_unit, attacked_unit, ...)
 	if attacked_unit then
 		local now = Managers.time and Managers.time:time("gameplay") or 0
-		if _feed_processed_kills[attacked_unit] and (now - _feed_processed_kills[attacked_unit] < 0.1) then
+		local processed = _feed_processed_kills[self]
+		if not processed then
+			processed = setmetatable({}, { __mode = "k" })
+			_feed_processed_kills[self] = processed
+		end
+		if processed[attacked_unit] and (now - processed[attacked_unit] < 0.1) then
 			return
 		end
 		if now > 0 then
-			_feed_processed_kills[attacked_unit] = now
+			processed[attacked_unit] = now
 		end
 	end
 
@@ -214,14 +264,18 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 	if not killer_name then
 		local ext = ScriptUnit.has_extension(attacking_unit, "unit_data_system")
 		local breed = ext and ext:breed()
-		if breed and breed.display_name then killer_name = Localize(breed.display_name) end
+		if breed and breed.display_name then
+			killer_name = Localize(breed.display_name)
+		end
 	end
-	
+
 	local victim_name = self:_get_unit_presentation_name(attacked_unit)
 	if not victim_name then
 		local ext = ScriptUnit.has_extension(attacked_unit, "unit_data_system")
 		local breed = ext and ext:breed()
-		if breed and breed.display_name then victim_name = Localize(breed.display_name) end
+		if breed and breed.display_name then
+			victim_name = Localize(breed.display_name)
+		end
 	end
 
 	if not killer_name or not victim_name then
@@ -241,16 +295,21 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 	end
 
 	func(self, attacking_unit, attacked_unit, ...)
-	
-	if mod:get("enable_all_kills") and mod:get("stack_kills") then
+
+	if enable_all_kills and stack_kills then
 		local companion_mod = get_mod("CompanionKillfeed")
 		local skip_merge = false
-		if companion_mod and companion_mod:is_enabled() and companion_mod:get("show_non_elite_kills") and companion_mod:get("stack_non_elite_kills") then
+		if
+			companion_mod
+			and companion_mod:is_enabled()
+			and companion_mod:get("show_non_elite_kills")
+			and companion_mod:get("stack_non_elite_kills")
+		then
 			if unit_is_companion(attacking_unit) then
 				skip_merge = true
 			end
 		end
-		
+
 		if not skip_merge then
 			merge_non_elite_kill(self, attacking_unit, attacked_unit)
 		end
