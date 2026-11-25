@@ -14,4 +14,4 @@ Adds horde and trash mob kills (Poxwalkers, Groaners) to the killfeed, stacked (
 - Show Enemy-on-Enemy Kills
 </details>
 
-🔗 **Links:** [Source Code](https://github.com/MaddyMarv/minion-killfeed) | [Nexus Mods Profile](https://www.nexusmods.com/profile/indicabunny) | [Support Me on Ko-fi](https://ko-fi.com/indicabunny)
+🔗 **Links:** [Source Code](https://github.com/MaddyMarv/Minion-Killfeed) | [Nexus Mods Profile](https://www.nexusmods.com/profile/indicabunny) | [Support Me on Ko-fi](https://ko-fi.com/indicabunny)
