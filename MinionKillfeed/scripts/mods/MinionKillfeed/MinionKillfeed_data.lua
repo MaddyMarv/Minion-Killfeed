@@ -1,13 +1,15 @@
+local mod = get_mod("MinionKillfeed")
+
 return {
-	name = "Minion Killfeed",
-	description = "Shows all enemy deaths in the killfeed.",
+	name = mod:localize("mod_name"),
+	description = mod:localize("mod_description"),
 	is_togglable = true,
 	options = {
 		widgets = {
 			{
 				setting_id = "general_settings",
 				type = "group",
-				tab = "loc_tab_general",
+				tab = mod:localize("loc_tab_general"),
 				sub_widgets = {
 					{
 						setting_id = "enable_all_kills",

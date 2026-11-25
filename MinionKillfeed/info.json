@@ -7,7 +7,7 @@
     "funding": {
         "kofi": "https://ko-fi.com/indicabunny"
     },
-    "description": "Adds horde and trash mob kills (Poxwalkers, Groaners) to the killfeed, stacked to prevent feed spam.",
+    "description": "Adds horde and trash mob kills (Poxwalkers, Groaners) to the killfeed, stacked (e.g., Poxwalker x5) to prevent feed spam.",
     "dependencies": {
         "required": [],
         "self_after": [],
